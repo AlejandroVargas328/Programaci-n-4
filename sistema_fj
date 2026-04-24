@@ -1,0 +1,333 @@
+import abc
+from abc import ABC, abstractmethod
+import logging
+from typing import List
+
+# ==================== CONFIGURACIÓN DE LOGS ====================
+logging.basicConfig(
+    filename='logs_eventos.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    encoding='utf-8',
+    force=True
+)
+
+# ==================== EXCEPCIONES PERSONALIZADAS ====================
+class DatosInvalidosError(Exception):
+    pass
+
+class OperacionNoPermitidaError(Exception):
+    pass
+
+class ReservaInvalidaError(Exception):
+    pass
+
+class ServicioNoDisponibleError(Exception):
+    pass
+
+# ==================== CLASE ABSTRACTA GENERAL ====================
+class EntidadAbstracta(ABC):
+    def __init__(self, id_entidad: str):
+        self._id_entidad = id_entidad
+
+    @abstractmethod
+    def validar(self) -> bool:
+        pass
+
+    def __str__(self):
+        return f"Entidad ID: {self._id_entidad}"
+
+# ==================== CLASE CLIENTE ====================
+class Cliente(EntidadAbstracta):
+    def __init__(self, id_cliente: str, nombre: str, email: str, telefono: str):
+        super().__init__(id_cliente)
+        self.__nombre = nombre
+        self.__email = email
+        self.__telefono = telefono
+        self.validar()
+
+    def validar(self) -> bool:
+        if not self.__nombre or "@" not in self.__email or len(str(self.__telefono)) < 7:
+            logging.error(f"Datos inválidos para cliente {self._id_entidad}")
+            raise DatosInvalidosError("Datos del cliente inválidos: nombre vacío, email incorrecto o teléfono inválido")
+        logging.info(f"Cliente validado correctamente: {self.__nombre} (ID: {self._id_entidad})")
+        return True
+
+    def get_nombre(self): return self.__nombre
+    def get_email(self): return self.__email
+    def get_telefono(self): return self.__telefono
+
+    def __str__(self):
+        return f"Cliente: {self.get_nombre()} (ID: {self._id_entidad})"
+
+# ==================== CLASE ABSTRACTA SERVICIO ====================
+class Servicio(EntidadAbstracta):
+    def __init__(self, id_servicio: str, nombre: str, precio_base: float):
+        super().__init__(id_servicio)
+        self.nombre = nombre
+        self.precio_base = precio_base
+        self.validar()
+
+    def validar(self) -> bool:
+        if self.precio_base <= 0:
+            raise DatosInvalidosError("Precio base debe ser mayor a cero")
+        return True
+
+    @abstractmethod
+    def calcular_costo(self, duracion: float) -> float:
+        pass
+
+    @abstractmethod
+    def describir_servicio(self) -> str:
+        pass
+
+    def validar_parametros(self, **kwargs) -> bool:
+        return True
+
+    # Método sobrecargado
+    def calcular_costo_con_impuestos(self, duracion: float, impuesto: float = 0.19, descuento: float = 0.0) -> float:
+        costo_base = self.calcular_costo(duracion)
+        costo_final = costo_base * (1 + impuesto)
+        if descuento > 0:
+            costo_final *= (1 - descuento)
+        return round(costo_final, 2)
+
+# ==================== SERVICIOS ESPECIALIZADOS ====================
+class ReservaSala(Servicio):
+    def __init__(self, id_servicio: str, nombre: str, precio_base: float, capacidad: int):
+        super().__init__(id_servicio, nombre, precio_base)
+        self.capacidad = capacidad
+
+    def calcular_costo(self, duracion: float) -> float:
+        if duracion <= 0:
+            raise ValueError("La duración debe ser mayor a cero")
+        return self.precio_base * duracion
+
+    def describir_servicio(self) -> str:
+        return f"Reserva de sala '{self.nombre}' (capacidad: {self.capacidad} personas)"
+
+    def validar_parametros(self, **kwargs) -> bool:
+        if kwargs.get('numero_personas', 0) > self.capacidad:
+            raise ReservaInvalidaError("El número de personas excede la capacidad de la sala")
+        return True
+
+class AlquilerEquipo(Servicio):
+    def __init__(self, id_servicio: str, nombre: str, precio_base: float, tipo_equipo: str):
+        super().__init__(id_servicio, nombre, precio_base)
+        self.tipo_equipo = tipo_equipo
+
+    def calcular_costo(self, duracion: float) -> float:
+        return self.precio_base * duracion * 1.1
+
+    def describir_servicio(self) -> str:
+        return f"Alquiler de equipo '{self.tipo_equipo}'"
+
+class AsesoriaEspecializada(Servicio):
+    def __init__(self, id_servicio: str, nombre: str, precio_base: float, especialidad: str):
+        super().__init__(id_servicio, nombre, precio_base)
+        self.especialidad = especialidad
+
+    def calcular_costo(self, duracion: float) -> float:
+        return self.precio_base + (duracion * 50)
+
+    def describir_servicio(self) -> str:
+        return f"Asesoría especializada en {self.especialidad}"
+
+# ==================== CLASE RESERVA ====================
+class Reserva:
+    def __init__(self, id_reserva: str, cliente: Cliente, servicio: Servicio, duracion: float):
+        self.id_reserva = id_reserva
+        self.cliente = cliente
+        self.servicio = servicio
+        self.duracion = duracion
+        self.estado = "pendiente"
+        self.validar_reserva()
+
+    def validar_reserva(self):
+        if self.duracion <= 0:
+            raise ReservaInvalidaError("La duración de la reserva debe ser mayor a cero")
+        self.servicio.validar_parametros(numero_personas=10)
+
+    def confirmar(self):
+        if self.estado != "pendiente":
+            raise OperacionNoPermitidaError("No se puede confirmar una reserva que no está pendiente")
+        self.estado = "confirmada"
+        logging.info(f"Reserva {self.id_reserva} CONFIRMADA exitosamente")
+
+    def cancelar(self):
+        if self.estado == "procesada":
+            raise OperacionNoPermitidaError("No se puede cancelar una reserva ya procesada")
+        self.estado = "cancelada"
+        logging.info(f"Reserva {self.id_reserva} CANCELADA")
+
+    def procesar(self):
+        if self.estado != "confirmada":
+            raise OperacionNoPermitidaError("La reserva debe estar confirmada antes de procesarla")
+        self.estado = "procesada"
+        costo = self.servicio.calcular_costo_con_impuestos(self.duracion, descuento=0.05)
+        logging.info(f"Reserva {self.id_reserva} PROCESADA. Costo final: ${costo}")
+
+    def __str__(self):
+        return f"Reserva {self.id_reserva} | {self.cliente.get_nombre()} | {self.servicio.nombre} | Estado: {self.estado}"
+
+# ==================== GESTOR DEL SISTEMA ====================
+class GestorSistema:
+    def __init__(self):
+        self.clientes: List[Cliente] = []
+        self.servicios: List[Servicio] = []
+        self.reservas: List[Reserva] = []
+
+    def registrar_cliente(self, cliente: Cliente):
+        self.clientes.append(cliente)
+        logging.info(f"Cliente registrado: {cliente}")
+
+    def crear_servicio(self, servicio: Servicio):
+        self.servicios.append(servicio)
+        logging.info(f"Servicio creado: {servicio.describir_servicio()}")
+
+    def crear_reserva(self, reserva: Reserva):
+        self.reservas.append(reserva)
+        logging.info(f"Reserva creada: {reserva}")
+
+    def listar_todo(self):
+        print("\n=== CLIENTES REGISTRADOS ===")
+        for c in self.clientes: print(c)
+        print("\n=== SERVICIOS DISPONIBLES ===")
+        for s in self.servicios: print(s.describir_servicio())
+        print("\n=== RESERVAS REALIZADAS ===")
+        for r in self.reservas: print(r)
+
+# ==================== SIMULACIÓN DE 11 OPERACIONES ====================
+def simulacion_automatica(gestor):
+    print("Ejecutando simulación automática de 11 operaciones (obligatorio)...\n")
+
+    # Op1: Cliente válido
+    try:
+        c1 = Cliente("C001", "Juan Pérez", "juan@email.com", "3101234567")
+        gestor.registrar_cliente(c1)
+        print("✅ Operación 1: Cliente válido registrado")
+    except Exception as e:
+        print(f"❌ Op1: {e}")
+
+    # Op2: Cliente inválido
+    try:
+        Cliente("C002", "", "mal@.com", "123")
+    except DatosInvalidosError as e:
+        logging.error(f"Error controlado Op2: {e}")
+        print(f"✅ Operación 2: Error controlado (cliente inválido): {e}")
+
+    # Op3-5: Servicios
+    try:
+        sala = ReservaSala("S001", "Sala Ejecutiva", 120.0, 20)
+        gestor.crear_servicio(sala)
+        equipo = AlquilerEquipo("S002", "Laptop", 80.0, "Dell XPS")
+        gestor.crear_servicio(equipo)
+        asesoria = AsesoriaEspecializada("S003", "Python OOP", 250.0, "Programación Avanzada")
+        gestor.crear_servicio(asesoria)
+        print("✅ Operaciones 3-5: Servicios creados correctamente")
+    except Exception as e:
+        print(f"❌ Op3-5: {e}")
+
+    # Op6: Reserva exitosa
+    try:
+        r1 = Reserva("R001", c1, sala, 5.0)
+        gestor.crear_reserva(r1)
+        r1.confirmar()
+        r1.procesar()
+        print("✅ Operación 6: Reserva exitosa procesada")
+    except Exception as e:
+        print(f"❌ Op6: {e}")
+
+    # Op7: Reserva inválida
+    try:
+        Reserva("R002", c1, sala, -1.0)
+    except ReservaInvalidaError as e:
+        logging.error(f"Error controlado Op7: {e}")
+        print(f"✅ Operación 7: Error controlado (reserva inválida): {e}")
+
+    # Op8: Cancelar reserva ya procesada (error controlado)
+    try:
+        r1.cancelar()
+    except OperacionNoPermitidaError as e:
+        logging.error(f"Error controlado Op8: {e}")
+        print(f"✅ Operación 8: Error controlado (cancelación no permitida): {e}")
+
+    # Op9: try/except/else/finally + encadenamiento de excepciones
+    print("\n--- Operación 9: Manejo avanzado de excepciones ---")
+    try:
+        try:
+            resultado = 100 / 0
+        except ZeroDivisionError as e:
+            logging.error(f"Error interno Op9: {e}")
+            raise OperacionNoPermitidaError("Error en cálculo de costos") from e
+    except OperacionNoPermitidaError as e:
+        logging.error(f"Error controlado Op9: {e}")
+        print(f"✅ Operación 9: Excepción encadenada capturada: {e}")
+    else:
+        print("✅ Bloque else Op9")
+    finally:
+        print("✅ Bloque finally Op9: Siempre se ejecuta")
+
+    # Op10: Reserva de asesoría
+    try:
+        r2 = Reserva("R003", c1, asesoria, 3.0)
+        gestor.crear_reserva(r2)
+        r2.confirmar()
+        r2.procesar()
+        print("✅ Operación 10: Reserva de asesoría exitosa")
+    except Exception as e:
+        print(f"❌ Op10: {e}")
+
+    # Op11: Mostrar estado final
+    gestor.listar_todo()
+    print("\n✅ Simulación de 11 operaciones completada correctamente.")
+
+# ==================== MENÚ INTERACTIVO ====================
+def menu_interactivo(gestor):
+    print("\n" + "="*70)
+    print("🚀 MODO INTERACTIVO - Software FJ")
+    print("="*70)
+    while True:
+        print("\nMenú principal:")
+        print("1. Registrar nuevo cliente")
+        print("2. Crear nuevo servicio")
+        print("3. Crear nueva reserva")
+        print("4. Confirmar reserva")
+        print("5. Cancelar reserva")
+        print("6. Procesar reserva")
+        print("7. Mostrar todo el sistema")
+        print("8. Ejecutar simulación automática otra vez")
+        print("0. Salir")
+        
+        opcion = input("\nElige una opción (0-8): ").strip()
+        
+        if opcion == "0":
+            print("👋 Gracias por usar el Sistema Software FJ. ¡Hasta pronto!")
+            break
+        elif opcion == "1":
+            try:
+                id_c = input("ID cliente: ")
+                nombre = input("Nombre: ")
+                email = input("Email: ")
+                tel = input("Teléfono: ")
+                c = Cliente(id_c, nombre, email, tel)
+                gestor.registrar_cliente(c)
+                print("✅ Cliente registrado")
+            except Exception as e: 
+                print(f"❌ {e}")
+        elif opcion == "7":
+            gestor.listar_todo()
+        elif opcion == "8":
+            simulacion_automatica(gestor)
+        else:
+            print("Opción no válida")
+
+# ==================== MAIN ====================
+def main():
+    print("=== SISTEMA INTEGRAL DE GESTIÓN - Software FJ ===\n")
+    gestor = GestorSistema()
+    simulacion_automatica(gestor)
+    menu_interactivo(gestor)
+
+if __name__ == "__main__":
+    main()
