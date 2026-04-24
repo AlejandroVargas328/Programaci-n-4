@@ -32,3 +32,20 @@
 2026-04-24 21:53:07,425 - INFO - Reserva creada: Reserva R003 | Juan Pérez | Python OOP | Estado: pendiente
 2026-04-24 21:53:07,425 - INFO - Reserva R003 CONFIRMADA exitosamente
 2026-04-24 21:53:07,426 - INFO - Reserva R003 PROCESADA. Costo final: $452.2
+2026-04-24 22:06:45,741 - INFO - Cliente validado correctamente: Juan Pérez (ID: C001)
+2026-04-24 22:06:45,742 - INFO - Cliente registrado: Cliente: Juan Pérez (ID: C001)
+2026-04-24 22:06:45,742 - ERROR - Datos inválidos para cliente C002
+2026-04-24 22:06:45,742 - ERROR - Error controlado Op2: Datos del cliente inválidos: nombre vacío, email incorrecto o teléfono inválido
+2026-04-24 22:06:45,742 - INFO - Servicio creado: Reserva de sala 'Sala Ejecutiva' (capacidad: 20 personas)
+2026-04-24 22:06:45,742 - INFO - Servicio creado: Alquiler de equipo 'Dell XPS'
+2026-04-24 22:06:45,742 - INFO - Servicio creado: Asesoría especializada en Programación Avanzada
+2026-04-24 22:06:45,742 - INFO - Reserva creada: Reserva R001 | Juan Pérez | Sala Ejecutiva | Estado: pendiente
+2026-04-24 22:06:45,743 - INFO - Reserva R001 CONFIRMADA exitosamente
+2026-04-24 22:06:45,743 - INFO - Reserva R001 PROCESADA. Costo final: $678.3
+2026-04-24 22:06:45,743 - ERROR - Error controlado Op7: La duración de la reserva debe ser mayor a cero
+2026-04-24 22:06:45,743 - ERROR - Error controlado Op8: No se puede cancelar una reserva ya procesada
+2026-04-24 22:06:45,743 - ERROR - Error interno Op9: division by zero
+2026-04-24 22:06:45,743 - ERROR - Error controlado Op9: Error en cálculo de costos
+2026-04-24 22:06:45,743 - INFO - Reserva creada: Reserva R003 | Juan Pérez | Python OOP | Estado: pendiente
+2026-04-24 22:06:45,743 - INFO - Reserva R003 CONFIRMADA exitosamente
+2026-04-24 22:06:45,743 - INFO - Reserva R003 PROCESADA. Costo final: $452.2
