@@ -326,7 +326,11 @@ def menu_interactivo(gestor):
 def main():
     print("=== SISTEMA INTEGRAL DE GESTIÓN - Software FJ ===\n")
     gestor = GestorSistema()
+
+ # Simulación obligatoria
     simulacion_automatica(gestor)
+
+# Menú interactivo
     menu_interactivo(gestor)
 
 if __name__ == "__main__":
